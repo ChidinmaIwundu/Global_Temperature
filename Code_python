@@ -1,0 +1,56 @@
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+
+np.random.seed(42)
+years = np.arange(1880, 2024)
+n = len(years)
+
+# Long-term warming trend: -0.4°C in 1880 up to +0.8°C in 2023
+trend = np.linspace(-0.4, 0.8, n)
+
+# Multi-decadal ocean oscillation
+amo = 0.08 * np.sin(2 * np.pi * years / 65)
+
+# Volcanic cooling events: Krakatoa 1883, El Chichón 1982, Pinatubo 1991
+volcanic = np.zeros(n)
+for yr, mag, width in [(1883, -0.25, 3), (1963, -0.15, 3),
+                        (1982, -0.18, 2), (1991, -0.20, 3)]:
+    idx = np.where(years == yr)[0][0]
+    for k in range(min(width, n - idx)):
+        volcanic[idx + k] += mag * np.exp(-k * 0.8)
+
+# ENSO climate oscillation
+enso = 0.10 * np.sin(2 * np.pi * years / 4.3 + 1.2) + \
+       0.05 * np.sin(2 * np.pi * years / 3.1)
+
+# Random year-to-year noise
+noise = np.random.normal(0, 0.06, n)
+
+# Combine everything into one anomaly signal
+anomaly = trend + amo + volcanic + enso + noise
+
+df = pd.DataFrame({'year': years, 'anomaly': anomaly})
+df['smoothed'] = df['anomaly'].rolling(11, center=True, min_periods=5).mean()
+
+
+fig, ax = plt.subplots(figsize=(13, 5))
+
+# Color each bar: blue if below baseline, orange if above
+colors = ['#38bdf8' if v < 0 else '#f97316' for v in df['anomaly']]
+ax.bar(df['year'], df['anomaly'], color=colors, width=0.85, alpha=0.75)
+
+# Smoothed trend line
+ax.plot(df['year'], df['smoothed'], color='#facc15', linewidth=2)
+
+# Zero baseline
+ax.axhline(0, color='gray', linewidth=0.8)
+
+# Labels
+ax.set_xlabel('Year')
+ax.set_ylabel('Anomaly (°C)')
+ax.set_title('Global Surface Temperature Anomaly 1880–2023')
+
+plt.tight_layout()
+plt.savefig('chart.png', dpi=150)
+plt.show()
